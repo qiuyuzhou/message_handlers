@@ -13,6 +13,23 @@
 
 #include <google/protobuf/message_lite.h>
 
+
+class message_handlers_unknown_id_error: public std::runtime_error
+{
+public:
+    message_handlers_unknown_id_error(const std::string& msg)
+            :std::runtime_error(msg)
+    {}
+};
+
+class message_handlers_parse_error: public std::runtime_error
+{
+public:
+    message_handlers_parse_error(const std::string& msg)
+            :std::runtime_error(msg)
+    {}
+};
+
 namespace policy {
     typedef std::function<void(int id, const void* buf, std::size_t buf_size)> inner_handler_t;
 
@@ -27,11 +44,17 @@ namespace policy {
         {
             if (id < 0 || id >= MAX_ID_LIMITED)
             {
-                throw std::runtime_error("id is out of range");// TODO better format message
+                std::array<char, 256> buf;
+                std::snprintf(buf.data(), buf.size()
+                        , "Id %i is out of range. Id range is limited (0 < id < %i)", id, MAX_ID_LIMITED);
+                throw std::runtime_error(std::string(buf.data()));
             }
             if (_handlers[id])
             {
-                throw std::invalid_argument("duplate id");
+                std::array<char, 256> buf;
+                std::snprintf(buf.data(), buf.size()
+                        , "Duplicated handler for id %i", id);
+                throw std::invalid_argument(std::string(buf.data()));
             }
             _handlers[id] = handler;
         }
@@ -40,12 +63,18 @@ namespace policy {
         {
             if (id < 0 || id >= MAX_ID_LIMITED)
             {
-                throw std::runtime_error("id is out of range");// TODO better format message
+                std::array<char, 256> s;
+                std::snprintf(s.data(), s.size()
+                        , "No handler for id %i", id);
+                throw message_handlers_unknown_id_error(std::string(s.data()));
             }
             auto& handler = _handlers[id];
             if (!handler)
             {
-                throw std::runtime_error("No handler for the id");// TODO better format message
+                std::array<char, 256> s;
+                std::snprintf(s.data(), s.size()
+                        , "No handler for id %i", id);
+                throw message_handlers_unknown_id_error(std::string(s.data()));
             }
             handler(id, buf, buf_size);
         }
@@ -61,7 +90,10 @@ namespace policy {
         {
             if ( _handlers.end() != _handlers.find(id) )
             {
-                throw std::invalid_argument("duplate id");
+                std::array<char, 256> buf;
+                std::snprintf(buf.data(), buf.size()
+                        , "Duplicated handler for id %i", id);
+                throw std::invalid_argument(std::string(buf.data()));
             }
             _handlers[id] = handler;
         }
@@ -75,7 +107,10 @@ namespace policy {
             }
             else
             {
-                throw std::runtime_error("No handler for the id");// TODO better format message
+                std::array<char, 256> s;
+                std::snprintf(s.data(), s.size()
+                        , "No handler for id %i", id);
+                throw message_handlers_unknown_id_error(std::string(s.data()));
             }
         }
     };
@@ -103,11 +138,22 @@ public:
             PacketType packet;
             if (!packet.ParseFromArray(buf, buf_size))
             {
-                throw std::runtime_error("parse failed");// TODO
+                std::array<char, 256> s;
+                std::snprintf(s.data(), s.size()
+                        , "Parsing message error for id %i", id);
+                throw message_handlers_parse_error(std::string(s.data()));
             }
             handler(id, packet);
         };
         _handlers.add_handler(id, fn);
+
+        return *this;
+    }
+    message_handlers& add_raw_handler(
+            int id
+            , std::function<void(int id, const void* buf, std::size_t buf_size)> handler )
+    {
+        _handlers.add_handler(id, handler);
 
         return *this;
     }
