@@ -30,99 +30,98 @@ public:
     {}
 };
 
-namespace policy {
-    typedef std::function<void(int id, const void* buf, std::size_t buf_size)> inner_handler_t;
 
-    template <unsigned int MAX_ID_LIMITED>
-    class array_policy
+template <typename ContextType, unsigned int MAX_ID_LIMITED>
+class message_handlers_array_policy
+{
+private:
+    typedef std::function<void(int id, const void* buf, std::size_t buf_size, ContextType)> inner_handler_t;
+    typedef std::array<inner_handler_t, MAX_ID_LIMITED> container_t;
+    container_t _handlers;
+public:
+    void add_handler(int id, inner_handler_t& handler)
     {
-    private:
-        typedef std::array<inner_handler_t, MAX_ID_LIMITED> container_t;
-        container_t _handlers;
-    public:
-        void add_handler(int id, inner_handler_t& handler)
+        if (id < 0 || id >= MAX_ID_LIMITED)
         {
-            if (id < 0 || id >= MAX_ID_LIMITED)
-            {
-                std::array<char, 256> buf;
-                std::snprintf(buf.data(), buf.size()
-                        , "Id %i is out of range. Id range is limited (0 < id < %i)", id, MAX_ID_LIMITED);
-                throw std::runtime_error(std::string(buf.data()));
-            }
-            if (_handlers[id])
-            {
-                std::array<char, 256> buf;
-                std::snprintf(buf.data(), buf.size()
-                        , "Duplicated handler for id %i", id);
-                throw std::invalid_argument(std::string(buf.data()));
-            }
-            _handlers[id] = handler;
+            std::array<char, 256> buf;
+            std::snprintf(buf.data(), buf.size()
+                    , "Id %i is out of range. Id range is limited (0 < id < %i)", id, MAX_ID_LIMITED);
+            throw std::runtime_error(std::string(buf.data()));
         }
-
-        inline void process(int id, const void* buf, std::size_t buf_size)const
+        if (_handlers[id])
         {
-            if (id < 0 || id >= MAX_ID_LIMITED)
-            {
-                std::array<char, 256> s;
-                std::snprintf(s.data(), s.size()
-                        , "No handler for id %i", id);
-                throw message_handlers_unknown_id_error(std::string(s.data()));
-            }
-            auto& handler = _handlers[id];
-            if (!handler)
-            {
-                std::array<char, 256> s;
-                std::snprintf(s.data(), s.size()
-                        , "No handler for id %i", id);
-                throw message_handlers_unknown_id_error(std::string(s.data()));
-            }
-            handler(id, buf, buf_size);
+            std::array<char, 256> buf;
+            std::snprintf(buf.data(), buf.size()
+                    , "Duplicated handler for id %i", id);
+            throw std::invalid_argument(std::string(buf.data()));
         }
-    };
+        _handlers[id] = handler;
+    }
 
-    class map_policy
+    inline void process(int id, const void* buf, std::size_t buf_size, ContextType ctx)const
     {
-    private:
-        typedef std::map<int, inner_handler_t> container_t;
-        container_t _handlers;
-    public:
-        void add_handler(int id, inner_handler_t& handler)
+        if (id < 0 || id >= MAX_ID_LIMITED)
         {
-            if ( _handlers.end() != _handlers.find(id) )
-            {
-                std::array<char, 256> buf;
-                std::snprintf(buf.data(), buf.size()
-                        , "Duplicated handler for id %i", id);
-                throw std::invalid_argument(std::string(buf.data()));
-            }
-            _handlers[id] = handler;
+            std::array<char, 256> s;
+            std::snprintf(s.data(), s.size()
+                    , "No handler for id %i", id);
+            throw message_handlers_unknown_id_error(std::string(s.data()));
         }
-
-        inline void process(int id, const void* buf, std::size_t buf_size)const
+        auto& handler = _handlers[id];
+        if (!handler)
         {
-            auto itr = _handlers.find(id);
-            if (itr != _handlers.end() )
-            {
-                itr->second(id, buf, buf_size);
-            }
-            else
-            {
-                std::array<char, 256> s;
-                std::snprintf(s.data(), s.size()
-                        , "No handler for id %i", id);
-                throw message_handlers_unknown_id_error(std::string(s.data()));
-            }
+            std::array<char, 256> s;
+            std::snprintf(s.data(), s.size()
+                    , "No handler for id %i", id);
+            throw message_handlers_unknown_id_error(std::string(s.data()));
         }
-    };
-}
+        handler(id, buf, buf_size, ctx);
+    }
+};
 
-template <typename ContainerTypePolicy=policy::map_policy>
+template <typename ContextType>
+class message_handlers_map_policy
+{
+private:
+    typedef std::function<void(int id, const void* buf, std::size_t buf_size, ContextType)> inner_handler_t;
+    typedef std::map<int, inner_handler_t> container_t;
+    container_t _handlers;
+public:
+    void add_handler(int id, inner_handler_t& handler)
+    {
+        if ( _handlers.end() != _handlers.find(id) )
+        {
+            std::array<char, 256> buf;
+            std::snprintf(buf.data(), buf.size()
+                    , "Duplicated handler for id %i", id);
+            throw std::invalid_argument(std::string(buf.data()));
+        }
+        _handlers[id] = handler;
+    }
+
+    inline void process(int id, const void* buf, std::size_t buf_size, ContextType ctx)const
+    {
+        auto itr = _handlers.find(id);
+        if (itr != _handlers.end() )
+        {
+            itr->second(id, buf, buf_size, ctx);
+        }
+        else
+        {
+            std::array<char, 256> s;
+            std::snprintf(s.data(), s.size()
+                    , "No handler for id %i", id);
+            throw message_handlers_unknown_id_error(std::string(s.data()));
+        }
+    }
+};
+
+template <typename ContextType, typename ContainerTypePolicy=message_handlers_map_policy<ContextType>>
 class message_handlers
 {
 public:
-    typedef google::protobuf::MessageLite PacketBaseType;
-    typedef std::function<void(int id, const void* buf, std::size_t buf_size)> inner_handler_t;
-
+//    typedef google::protobuf::MessageLite PacketBaseType;
+    typedef std::function<void(int id, const void* buf, std::size_t buf_size, ContextType)> inner_handler_t;
 
 public:
     message_handlers()
@@ -130,10 +129,10 @@ public:
     }
 
     template <typename PacketType>
-    message_handlers& add_handler( int id, std::function<void(int id, PacketType&)> handler)
+    message_handlers& add_handler( int id, std::function<void(int id, PacketType&, ContextType)> handler)
     {
         // TODO static assert to check PacketType and PacketBaseType
-        inner_handler_t fn = [&handler](int id, const void* buf, std::size_t buf_size) -> void
+        inner_handler_t fn = [&handler](int id, const void* buf, std::size_t buf_size, ContextType context) -> void
         {
             PacketType packet;
             if (!packet.ParseFromArray(buf, buf_size))
@@ -143,7 +142,7 @@ public:
                         , "Parsing message error for id %i", id);
                 throw message_handlers_parse_error(std::string(s.data()));
             }
-            handler(id, packet);
+            handler(id, packet, context);
         };
         _handlers.add_handler(id, fn);
 
@@ -151,16 +150,16 @@ public:
     }
     message_handlers& add_raw_handler(
             int id
-            , std::function<void(int id, const void* buf, std::size_t buf_size)> handler )
+            , std::function<void(int id, const void* buf, std::size_t buf_size, ContextType)> handler )
     {
         _handlers.add_handler(id, handler);
 
         return *this;
     }
 
-    inline void process(int id, const void* buf, std::size_t buf_size)const
+    inline void process(int id, const void* buf, std::size_t buf_size, ContextType context)const
     {
-        _handlers.process(id, buf, buf_size);
+        _handlers.process(id, buf, buf_size, context);
     }
 
 private:

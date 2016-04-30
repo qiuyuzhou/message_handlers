@@ -7,8 +7,8 @@ using namespace std;
 
 int main() {
 
-    message_handlers<policy::array_policy<256> >    ph;
-    ph.add_handler<Person>(0, [](int id, Person& person){
+    message_handlers<void*, message_handlers_array_policy<void*, 256> >    ph;
+    ph.add_handler<Person>(0, [](int id, Person& person, void* context){
         cout << person.name() << endl
         << person.id() << endl
         << person.email() << endl;
@@ -20,7 +20,7 @@ int main() {
     person.set_email("jdoe@example.com");
 
     auto buf = person.SerializeAsString();
-    ph.process(0, buf.data(), buf.length());
+    ph.process(0, buf.data(), buf.length(), nullptr);
 
     return 0;
 }
