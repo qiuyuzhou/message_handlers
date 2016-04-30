@@ -14,7 +14,7 @@ install:
 - rm conan.deb
 
 # Automatic detection of your arch, compiler, etc
-- conan install --build Protobuf
+- conan install --build Protobuf zlib
 
 
 script:
