@@ -1,0 +1,17 @@
+language: cpp
+compiler:
+- gcc
+install:
+
+# Download conan
+- wget http://downloads.conan.io/latest_debian -O conan.deb
+- sudo dpkg -i conan.deb
+- rm conan.deb
+
+# Automatic detection of your arch, compiler, etc
+- conan install
+
+
+script:
+- mkdir build
+- cd build && cmake ../ -DBUILD_TEST=TRUE && cmake --build .
