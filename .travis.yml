@@ -9,7 +9,7 @@ install:
 - rm conan.deb
 
 # Automatic detection of your arch, compiler, etc
-- conan install
+- conan install --build Protobuf
 
 
 script:
