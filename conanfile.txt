@@ -1,5 +1,15 @@
 [requires]
 Protobuf/2.6.1@memsharded/testing
+gtest/1.7.0@lasote/stable
+
+[options]
+
 
 [generators]
 cmake
+
+[imports]
+#Copies all dll files from packages bin folder to my "bin" folder
+bin, *.dll -> ./build/bin
+#Copies all dylib files from packages lib folder to my "bin" folder
+lib, *.dylib* -> ./build/bin

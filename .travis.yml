@@ -16,9 +16,10 @@ install:
 - rm conan.deb
 
 # Automatic detection of your arch, compiler, etc
-- conan install --build Protobuf zlib
+- conan install --build=missing
 
 
 script:
 - mkdir build
 - cd build && cmake ../ -DBUILD_TEST=TRUE && cmake --build .
+- cd bin && ./gtest_main
