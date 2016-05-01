@@ -22,4 +22,4 @@ install:
 script:
 - mkdir build
 - cd build && cmake ../ -DBUILD_TEST=TRUE && cmake --build .
-- cd bin && ./gtest_main
+- cd bin && ./message_handlers_test
